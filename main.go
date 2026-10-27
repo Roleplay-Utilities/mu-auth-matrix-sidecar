@@ -136,8 +136,9 @@ func main() {
 		envPath := filepath.Join(filepath.Dir(exPath), ".env")
 		_ = godotenv.Load(envPath)
 	} else {
-		_ = godotenv.Load() // Fallback to working directory
+		_ = godotenv.Load()
 	}
+	
 	log := logrus.New()
 	log.SetFormatter(&logrus.JSONFormatter{})
 
@@ -151,8 +152,28 @@ func main() {
 		log.Fatal(err)
 	}
 
-	go CheckForUpdates()
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
 
+	// Periodic update checker
+	go func() {
+		time.Sleep(10 * time.Second)
+		CheckForUpdates()
+
+		ticker := time.NewTicker(24 * time.Hour)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ticker.C:
+				CheckForUpdates()
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+
+	// Cache sweeper
 	stopSweep := make(chan struct{})
 	defer close(stopSweep)
 	go func() {
@@ -178,13 +199,12 @@ func main() {
 		IdleTimeout:       60 * time.Second,
 	}
 
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer stop()
+	// Graceful shutdown
 	go func() {
 		<-ctx.Done()
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
-		httpSrv.Shutdown(shutdownCtx)
+		_ = httpSrv.Shutdown(shutdownCtx)
 	}()
 
 	log.WithFields(logrus.Fields{
