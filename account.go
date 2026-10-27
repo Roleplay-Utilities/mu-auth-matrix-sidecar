@@ -478,8 +478,8 @@ func (s *Server) handleRenameDevice(w http.ResponseWriter, r *http.Request) {
     }
 
     localpart := localpartOf(userID)
-    // Assuming Zendrite admin supports updating device metadata via an action (or update_device)
-    if err := s.zendriteAdminOK(r.Context(), "update_device", map[string]any{
+    // Assuming Zendrite admin supports updating device metadata via an action
+    if err := s.zendriteAdminOK(r.Context(), "update_device_display_name", map[string]any{
         "localpart":    localpart,
         "device_id":    deviceID,
         "display_name": in.DisplayName,
