@@ -91,12 +91,15 @@ func docString(doc map[string]any, key string) string {
 // token_endpoint, introspection_endpoint and jwks_uri are rewritten to point at the sidecar, so
 // Zendrite never needs to talk to MU Auth directly at all.
 func (s *Server) handleDiscovery(w http.ResponseWriter, r *http.Request) {
-	doc, err := s.fetchDiscovery(r.Context())
-	if err != nil {
-		s.log.WithError(err).Error("discovery fetch failed")
-		writeOAuthError(w, http.StatusBadGateway, "server_error", "identity provider unavailable")
-		return
-	}
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+    defer cancel()
+
+    doc, err := s.fetchDiscovery(ctx)
+    if err != nil {
+        s.log.WithError(err).Error("discovery fetch failed")
+        writeOAuthError(w, http.StatusBadGateway, "server_error", "identity provider unavailable")
+        return
+    }
 	out := make(map[string]any, len(doc)+4)
 	for k, v := range doc {
 		out[k] = v

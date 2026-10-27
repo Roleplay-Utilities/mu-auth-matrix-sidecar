@@ -220,6 +220,49 @@ func TestDecodeSecretAcceptsBase64AndHexAndFallsBackToHash(t *testing.T) {
 	}
 }
 
+func TestInjectAdminScope(t *testing.T) {
+	cases := []struct {
+		name    string
+		scope   string
+		isAdmin bool
+		want    string
+	}{
+		{"not admin, scope unchanged", "urn:matrix:client:api:*", false, "urn:matrix:client:api:*"},
+		{"admin, scope appended", "urn:matrix:client:api:*", true, "urn:matrix:client:api:* " + adminScope},
+		{"admin, empty scope", "", true, adminScope},
+		{"admin, already present", "urn:matrix:client:api:* " + adminScope, true, "urn:matrix:client:api:* " + adminScope},
+		{"not admin, empty scope stays empty", "", false, ""},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if got := injectAdminScope(c.scope, c.isAdmin); got != c.want {
+				t.Fatalf("got %q, want %q", got, c.want)
+			}
+		})
+	}
+}
+
+func TestAccountManagementActionsAreCanonical(t *testing.T) {
+	// Guards against the non-standard names (devices_list/device_view/device_delete) creeping
+	// back in: these are the exact identifiers matrix-rust-sdk / MAS expect.
+	want := []string{
+		"org.matrix.profile",
+		"org.matrix.sessions_list",
+		"org.matrix.session_view",
+		"org.matrix.session_end",
+		"org.matrix.account_deactivate",
+		"org.matrix.cross_signing_reset",
+	}
+	if len(accountManagementActions) != len(want) {
+		t.Fatalf("got %d actions, want %d: %v", len(accountManagementActions), len(want), accountManagementActions)
+	}
+	for i, w := range want {
+		if accountManagementActions[i] != w {
+			t.Fatalf("action %d: got %q, want %q", i, accountManagementActions[i], w)
+		}
+	}
+}
+
 func TestCheckAdminBearerConstantTimeCompareIsCorrect(t *testing.T) {
 	s := &Server{cfg: &Config{ZendriteAdminToken: "correct-token"}}
 	req := newBearerRequest("correct-token")

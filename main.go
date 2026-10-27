@@ -66,13 +66,18 @@ func (s *Server) routes() http.Handler {
 	mux.HandleFunc("GET /oauth2/authorize", s.handleAuthorize)
 	mux.HandleFunc("POST /oauth2/token", s.handleToken)
 	mux.HandleFunc("POST /oauth2/introspect", s.handleIntrospect)
+	//mux.HandleFunc("POST /oauth2/device/auth", s.handleDeviceAuthorization) - not necessary at the moment
 
 	if s.cfg.DashboardEnabled() {
 		mux.HandleFunc("GET /account", s.handleAccountPage)
 		mux.HandleFunc("GET /account/callback", s.handleAccountCallback)
 		mux.HandleFunc("POST /account/logout", s.handleAccountLogout)
 		mux.HandleFunc("GET /api/devices", s.handleListDevices)
+		mux.HandleFunc("GET /api/profile", s.handleProfileGet)
+		mux.HandleFunc("PUT /api/profile", s.handleProfilePut)
 		mux.HandleFunc("DELETE /api/devices/{device_id}", s.handleDeleteDevice)
+		mux.HandleFunc("POST /api/account/deactivate", s.handleDeactivateAccount)
+		mux.HandleFunc("POST /api/account/confirm-cross-signing-reset", s.handleConfirmCrossSigningReset)
 	}
 
 	// The 12 MAS admin/provisioning actions, each on its own exact path and method — never a

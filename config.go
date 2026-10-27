@@ -177,7 +177,7 @@ func LoadConfig() (*Config, error) {
 	if c.ProvisionCacheTTL, err = parseDuration("PROVISION_CACHE_TTL", env("PROVISION_CACHE_TTL", ""), 60*time.Second); err != nil {
 		return nil, err
 	}
-	if c.DiscoveryCacheTTL, err = parseDuration("DISCOVERY_CACHE_TTL", env("DISCOVERY_CACHE_TTL", ""), 10*time.Minute); err != nil {
+	if c.DiscoveryCacheTTL, err = parseDuration("DISCOVERY_CACHE_TTL", env("DISCOVERY_CACHE_TTL", ""), 60*time.Minute); err != nil {
 		return nil, err
 	}
 
