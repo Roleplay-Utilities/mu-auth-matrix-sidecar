@@ -14,6 +14,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"runtime/debug"
 	"strings"
 	"time"
 
@@ -867,3 +868,139 @@ document.getElementById('deactivate').onclick = async () => {
 </body>
 </html>
 `))
+
+func (s *Server) handleLandingPage(w http.ResponseWriter, r *http.Request) {
+    // Only serve on exact root path
+    if r.URL.Path != "/" {
+        http.NotFound(w, r)
+        return
+    }
+
+    // Automatically grab git commit hash and build info if built as a module
+    version := "v1.0.2" // fallback
+    if info, ok := debug.ReadBuildInfo(); ok {
+        for _, setting := range info.Settings {
+            if setting.Key == "vcs.revision" {
+                if len(setting.Value) > 7 {
+                    version = setting.Value[:7] // short hash
+                } else {
+                    version = setting.Value
+                }
+                break
+            }
+        }
+    }
+
+    html := fmt.Sprintf(`<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MU Matrix Sidecar</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #0f172a;
+            color: #e2e8f0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .card {
+            background-color: #1e293b;
+            padding: 2.5rem;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+            max-width: 480px;
+            width: 100%%;
+            border: 1px solid #334155;
+            text-align: center;
+        }
+        h1 {
+            font-size: 1.5rem;
+            margin-top: 0;
+            color: #f8fafc;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        .badge {
+            background-color: #0284c7;
+            color: #white;
+            font-size: 0.75rem;
+            padding: 2px 8px;
+            border-radius: 9999px;
+            font-weight: 600;
+        }
+        p {
+            color: #94a3b8;
+            font-size: 0.95rem;
+            line-height: 1.5;
+        }
+        .jab {
+            font-style: italic;
+            color: #cbd5e1;
+            background: #0f172a;
+            padding: 12px;
+            border-radius: 8px;
+            border-left: 3px solid #0ea5e9;
+            margin: 1.5rem 0;
+            text-align: left;
+            font-size: 0.85rem;
+        }
+        .meta {
+            font-size: 0.8rem;
+            color: #64748b;
+            margin-top: 1.5rem;
+            border-top: 1px solid #334155;
+            padding-top: 1rem;
+        }
+        .links {
+            margin-top: 1rem;
+            display: flex;
+            justify-content: center;
+            gap: 16px;
+        }
+        a {
+            color: #38bdf8;
+            text-decoration: none;
+            font-size: 0.9rem;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>Running Sidecar <span class="badge">%s</span></h1>
+        <p>A lightweight MAS alternative built for OIDC with MU Auth on Zendrite homeservers.</p>
+        
+        <div class="jab">
+            Because configuring standard MAS and Matrix OIDC shouldn't require a master's degree in OAuth voodoo, dark magic, and prayer.
+        </div>
+
+        <p style="font-size: 0.8rem; color: #64748b;">
+            <em>Note: Other homeservers may technically work, but only Zendrite is officially validated.</em>
+        </p>
+
+        <div class="links">
+            <a href="https://mega-utilities.com" target="_blank">Mega Utilities</a>
+            <span>•</span>
+            <a href="https://matrix.to/#/#mu:matrix.mega-utilities.com" target="_blank">MU Matrix Space</a>
+        </div>
+
+        <div class="meta">
+            Created by Mega Utilities
+        </div>
+    </div>
+</body>
+</html>`, version)
+
+    w.Header().Set("Content-Type", "text/html; charset=utf-8")
+    w.WriteHeader(http.StatusOK)
+    w.Write([]byte(html))
+}

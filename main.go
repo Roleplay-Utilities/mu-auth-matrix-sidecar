@@ -66,6 +66,7 @@ func (s *Server) routes() http.Handler {
 	mux.HandleFunc("GET /oauth2/authorize", s.handleAuthorize)
 	mux.HandleFunc("POST /oauth2/token", s.handleToken)
 	mux.HandleFunc("POST /oauth2/introspect", s.handleIntrospect)
+	mux.HandleFunc("GET /", s.handleLandingPage)
 	//mux.HandleFunc("POST /oauth2/device/auth", s.handleDeviceAuthorization) - not necessary at the moment
 
 	if s.cfg.DashboardEnabled() {
