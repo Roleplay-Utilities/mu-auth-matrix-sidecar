@@ -115,7 +115,13 @@ func (s *Server) handleIntrospect(w http.ResponseWriter, r *http.Request) {
 		writeUpstream(w, up) // {"active": false, ...}: nothing to provision or promote
 		return
 	}
-	username, _ := payload["username"].(string)
+	rawUsername, _ := payload["preferred_username"].(string)
+	if strings.TrimSpace(rawUsername) == "" {
+		rawUsername, _ = payload["username"].(string)
+	}
+
+	username := strings.ToLower(strings.TrimSpace(rawUsername))
+
 	if !localpartRe.MatchString(username) {
 		s.log.WithField("username", username).Error("introspect: upstream username is not a valid Matrix localpart")
 		writeInactive(w)
