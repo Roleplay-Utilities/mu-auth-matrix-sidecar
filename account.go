@@ -923,7 +923,7 @@ async function promptRename(deviceID, currentName) {
   if (newName === null) return;
 
   try {
-    const resp = await fetch('/_synapse/mas/v1/devices/' + encodeURIComponent(deviceID), {
+    const resp = await fetch('/api/devices/' + encodeURIComponent(deviceID), {
       method: 'PUT',
       credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json' },

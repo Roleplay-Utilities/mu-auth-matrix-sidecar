@@ -106,7 +106,7 @@ func (s *Server) routes() http.Handler {
 		mux.HandleFunc("GET /api/profile", s.metrics.InstrumentHandler("/api/profile", s.handleProfileGet))
 		mux.HandleFunc("PUT /api/profile", s.metrics.InstrumentHandler("/api/profile", s.handleProfilePut))
 		mux.HandleFunc("DELETE /api/devices/{device_id}", s.metrics.InstrumentHandler("/api/devices/{device_id}", s.handleDeleteDevice))
-		mux.HandleFunc("PUT /_synapse/mas/update_device_display_name", s.metrics.InstrumentHandler("/_synapse/mas/update_device_display_name", s.handleRenameDevice))
+		mux.HandleFunc("PUT /api/devices/{device_id}", s.metrics.InstrumentHandler("/api/devices/{device_id}", s.handleRenameDevice))
 		mux.HandleFunc("POST /api/account/deactivate", s.metrics.InstrumentHandler("/api/account/deactivate", s.handleDeactivateAccount))
 		mux.HandleFunc("POST /api/account/confirm-cross-signing-reset", s.metrics.InstrumentHandler("/api/account/confirm-cross-signing-reset", s.handleConfirmCrossSigningReset))
 	}
