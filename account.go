@@ -439,6 +439,61 @@ func (s *Server) userOwnsDevice(ctx context.Context, accessToken, deviceID strin
 	}
 }
 
+func (s *Server) handleRenameDevice(w http.ResponseWriter, r *http.Request) {
+    deviceID := r.PathValue("device_id")
+    if !deviceIDRe.MatchString(deviceID) {
+        writeMatrixError(w, http.StatusBadRequest, "M_INVALID_PARAM", "invalid device_id")
+        return
+    }
+    sess, userID, ok := s.authenticatedSession(w, r)
+    if !ok {
+        return
+    }
+    owns, err := s.userOwnsDevice(r.Context(), sess.AccessToken, deviceID)
+    if err != nil {
+        s.log.WithError(err).Error("account: device ownership check failed")
+        writeMatrixError(w, http.StatusBadGateway, "M_UNKNOWN", "homeserver unreachable")
+        return
+    }
+    if !owns {
+        writeMatrixError(w, http.StatusNotFound, "M_NOT_FOUND", "device not found")
+        return
+    }
+
+    raw, err := io.ReadAll(http.MaxBytesReader(w, r.Body, maxReqBytes))
+    if err != nil {
+        writeMatrixError(w, http.StatusRequestEntityTooLarge, "M_TOO_LARGE", "request body too large")
+        return
+    }
+    var in struct {
+        DisplayName string `json:"display_name"`
+    }
+    if json.Unmarshal(raw, &in) != nil {
+        writeMatrixError(w, http.StatusBadRequest, "M_NOT_JSON", "body must be a JSON object")
+        return
+    }
+    if len(in.DisplayName) > 256 {
+        writeMatrixError(w, http.StatusBadRequest, "M_INVALID_PARAM", "display name too long")
+        return
+    }
+
+    localpart := localpartOf(userID)
+    // Assuming Zendrite admin supports updating device metadata via an action (or update_device)
+    if err := s.zendriteAdminOK(r.Context(), "update_device", map[string]any{
+        "localpart":    localpart,
+        "device_id":    deviceID,
+        "display_name": in.DisplayName,
+    }); err != nil {
+        s.log.WithError(err).WithFields(logrus.Fields{"localpart": localpart, "device": deviceID}).Error("account: update_device failed")
+        writeMatrixError(w, http.StatusBadGateway, "M_UNKNOWN", "homeserver unreachable")
+        return
+    }
+
+    w.Header().Set("Cache-Control", "no-store")
+    w.Header().Set("Content-Type", "application/json")
+    w.Write([]byte("{}"))
+}
+
 // ───────────────────────────── /api/profile ─────────────────────────────
 
 // handleProfileGet returns the authenticated user's own profile, straight from Zendrite's normal
@@ -682,6 +737,8 @@ var dashboardPage = template.Must(template.New("account").Parse(`<!doctype html>
   #reset-banner p { font-size: .9rem; }
   .danger-zone { border-top: 1px solid var(--border); padding-top: 1.2rem; }
   .danger-zone p { font-size: .9rem; opacity: .85; }
+  .device-actions { display: flex; gap: .5frem; align-items: center; }
+  .device input.rename-input { max-width: 180px; padding: .2rem .4rem; font-size: .85rem; margin-top: 0; }
 </style>
 </head>
 <body>
@@ -804,18 +861,23 @@ async function load() {
     const devices = data.devices || [];
     status.textContent = devices.length + ' device' + (devices.length === 1 ? '' : 's');
     list.innerHTML = '';
+    
     for (const d of devices) {
       const row = document.createElement('div');
       row.className = 'device' + (d.device_id === targetDevice ? ' highlight' : '');
       row.id = 'device-' + d.device_id;
+      
       const meta = document.createElement('div');
       meta.className = 'meta';
+      
       const name = document.createElement('div');
       name.className = 'name';
       name.textContent = d.display_name || '(unnamed device)';
+      
       const id = document.createElement('div');
       id.className = 'id';
       id.textContent = d.device_id;
+      
       meta.append(name, id);
       if (d.last_seen_ts) {
         const seen = document.createElement('div');
@@ -823,19 +885,31 @@ async function load() {
         seen.textContent = 'Last seen ' + new Date(d.last_seen_ts).toLocaleString();
         meta.append(seen);
       }
-      const btn = document.createElement('button');
-      btn.className = 'danger';
-      btn.textContent = 'Sign out';
-      btn.onclick = () => removeDevice(d.device_id, btn);
-      row.append(meta, btn);
+      
+      const actions = document.createElement('div');
+      actions.style.display = 'flex';
+      actions.style.gap = '.5rem';
+
+      const renameBtn = document.createElement('button');
+      renameBtn.textContent = 'Rename';
+      renameBtn.onclick = () => promptRename(d.device_id, d.display_name || '');
+
+      const signoutBtn = document.createElement('button');
+      signoutBtn.className = 'danger';
+      signoutBtn.textContent = 'Sign out';
+      signoutBtn.onclick = () => removeDevice(d.device_id, signoutBtn);
+
+      actions.append(renameBtn, signoutBtn);
+      row.append(meta, actions);
       list.append(row);
     }
+
     if (targetDevice) {
       const row = document.getElementById('device-' + targetDevice);
       if (row) row.scrollIntoView({ behavior: 'smooth', block: 'center' });
       if (action === 'org.matrix.session_end' && !autoEndTriggered) {
         autoEndTriggered = true;
-        const btn = row ? row.querySelector('button') : null;
+        const btn = row ? row.querySelector('button.danger') : null;
         if (btn) removeDevice(targetDevice, btn);
       }
     }
@@ -843,6 +917,28 @@ async function load() {
     status.textContent = 'Could not load devices.';
   }
 }
+
+async function promptRename(deviceID, currentName) {
+  const newName = prompt("Enter new device name:", currentName);
+  if (newName === null) return;
+
+  try {
+    const resp = await fetch('/_synapse/mas/v1/devices/' + encodeURIComponent(deviceID), {
+      method: 'PUT',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ display_name: newName })
+    });
+    if (resp.ok) {
+      load();
+    } else {
+      alert("Failed to rename device.");
+    }
+  } catch (e) {
+    alert("Error renaming device.");
+  }
+}
+
 load();
 
 // ---- danger zone ----

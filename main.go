@@ -95,6 +95,10 @@ func (s *Server) routes() http.Handler {
 	//mux.HandleFunc("POST /oauth2/device/auth", s.handleDeviceAuthorization) - not necessary at the moment
 
 	if s.cfg.DashboardEnabled() {
+		// Redirect any sub-path under /account/ (that isn't a defined route) back to /account
+		mux.HandleFunc("GET /account/{rest...}", func(w http.ResponseWriter, r *http.Request) {
+			http.Redirect(w, r, "/account", http.StatusFound)
+		})
 		mux.HandleFunc("GET /account", s.metrics.InstrumentHandler("/account", s.handleAccountPage))
 		mux.HandleFunc("GET /account/callback", s.metrics.InstrumentHandler("/account/callback", s.handleAccountCallback))
 		mux.HandleFunc("POST /account/logout", s.metrics.InstrumentHandler("/account/logout", s.handleAccountLogout))
@@ -102,6 +106,7 @@ func (s *Server) routes() http.Handler {
 		mux.HandleFunc("GET /api/profile", s.metrics.InstrumentHandler("/api/profile", s.handleProfileGet))
 		mux.HandleFunc("PUT /api/profile", s.metrics.InstrumentHandler("/api/profile", s.handleProfilePut))
 		mux.HandleFunc("DELETE /api/devices/{device_id}", s.metrics.InstrumentHandler("/api/devices/{device_id}", s.handleDeleteDevice))
+		mux.HandleFunc("PUT /api/devices/{device_id}", s.metrics.InstrumentHandler("/api/devices/{device_id}", s.handleRenameDevice))
 		mux.HandleFunc("POST /api/account/deactivate", s.metrics.InstrumentHandler("/api/account/deactivate", s.handleDeactivateAccount))
 		mux.HandleFunc("POST /api/account/confirm-cross-signing-reset", s.metrics.InstrumentHandler("/api/account/confirm-cross-signing-reset", s.handleConfirmCrossSigningReset))
 	}
@@ -120,7 +125,7 @@ func (s *Server) routes() http.Handler {
     mux.HandleFunc("POST /_synapse/mas/set_displayname", s.metrics.InstrumentHandler("/_synapse/mas/set_displayname", s.handleManage("set_displayname", http.MethodPost)))
     mux.HandleFunc("POST /_synapse/mas/unset_displayname", s.metrics.InstrumentHandler("/_synapse/mas/unset_displayname", s.handleManage("unset_displayname", http.MethodPost)))
     mux.HandleFunc("POST /_synapse/mas/allow_cross_signing_reset", s.metrics.InstrumentHandler("/_synapse/mas/allow_cross_signing_reset", s.handleManage("allow_cross_signing_reset", http.MethodPost)))
-	
+
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
     w.Header().Set("Content-Type", "application/json")
     w.WriteHeader(http.StatusOK)
