@@ -144,14 +144,16 @@ func registerSystemService(binPath string) {
 		}
 
 	case "linux":
-		// Register Linux systemd service (unchanged)
 		serviceContent := fmt.Sprintf(`[Unit]
 Description=%s
-After=network.target
+After=network-online.target
+Wants=network-online.target
 
 [Service]
+Type=simple
 ExecStart=%s
 Restart=always
+RestartSec=5
 User=root
 
 [Install]
