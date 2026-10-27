@@ -171,6 +171,7 @@ func (s *Server) handleAuthorize(w http.ResponseWriter, r *http.Request) {
 	target, err := s.upstreamAuthorizeURL(r.Context())
 	if err != nil {
 		s.log.WithError(err).Error("authorize: discovery fetch failed")
+		s.metrics.oauthFlowsTotal.WithLabelValues("authorize", "error").Inc()
 		http.Error(w, "identity provider unavailable", http.StatusBadGateway)
 		return
 	}
@@ -190,6 +191,7 @@ func (s *Server) handleAuthorize(w http.ResponseWriter, r *http.Request) {
 
 	q.Set("scope", injectDeviceScope(q.Get("scope"), deviceID))
 	target.RawQuery = q.Encode()
+	s.metrics.oauthFlowsTotal.WithLabelValues("authorize", "success").Inc()
 	http.Redirect(w, r, target.String(), http.StatusFound)
 }
 
