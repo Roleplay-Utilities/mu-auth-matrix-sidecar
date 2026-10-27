@@ -12,6 +12,7 @@ import (
 	"syscall"
 	"time"
 	"fmt"
+	"encoding/json"
 
 	"github.com/joho/godotenv"
 	"github.com/sirupsen/logrus"
@@ -39,6 +40,7 @@ type Server struct {
 	deviceNamesMu sync.Mutex
     deviceNames deviceNameStore
 	startTime   time.Time
+	metrics     *SidecarMetrics
 }
 
 func NewServer(cfg *Config, log *logrus.Logger) (*Server, error) {
@@ -58,6 +60,7 @@ func NewServer(cfg *Config, log *logrus.Logger) (*Server, error) {
 		log:         log,
 		provisioned: provisionCache{entries: make(map[string]time.Time)},
 		startTime: time.Now(),
+		metrics: NewSidecarMetrics(),
 	}, nil
 }
 
@@ -82,42 +85,57 @@ func formatUptime(d time.Duration) string {
 func (s *Server) routes() http.Handler {
 	mux := http.NewServeMux()
 
-	mux.HandleFunc("GET /.well-known/openid-configuration", s.handleDiscovery)
-	mux.HandleFunc("GET /oauth2/jwks", s.handleJWKS)
-	mux.HandleFunc("GET /oauth2/authorize", s.handleAuthorize)
-	mux.HandleFunc("POST /oauth2/token", s.handleToken)
-	mux.HandleFunc("POST /oauth2/introspect", s.handleIntrospect)
-	mux.HandleFunc("GET /", s.handleLandingPage)
+	mux.HandleFunc("GET /.well-known/openid-configuration", s.metrics.InstrumentHandler("/.well-known/openid-configuration", s.handleDiscovery))
+	mux.HandleFunc("GET /oauth2/jwks", s.metrics.InstrumentHandler("/oauth2/jwks", s.handleJWKS))
+	mux.HandleFunc("GET /oauth2/authorize", s.metrics.InstrumentHandler("/oauth2/authorize", s.handleAuthorize))
+	mux.HandleFunc("POST /oauth2/token", s.metrics.InstrumentHandler("/oauth2/token", s.handleToken))
+	mux.HandleFunc("POST /oauth2/introspect", s.metrics.InstrumentHandler("/oauth2/introspect", s.handleIntrospect))
+	mux.HandleFunc("GET /", s.metrics.InstrumentHandler("/", s.handleLandingPage))
+	mux.Handle("GET /metrics", HandleMetrics())
 	//mux.HandleFunc("POST /oauth2/device/auth", s.handleDeviceAuthorization) - not necessary at the moment
 
 	if s.cfg.DashboardEnabled() {
-		mux.HandleFunc("GET /account", s.handleAccountPage)
-		mux.HandleFunc("GET /account/callback", s.handleAccountCallback)
-		mux.HandleFunc("POST /account/logout", s.handleAccountLogout)
-		mux.HandleFunc("GET /api/devices", s.handleListDevices)
-		mux.HandleFunc("GET /api/profile", s.handleProfileGet)
-		mux.HandleFunc("PUT /api/profile", s.handleProfilePut)
-		mux.HandleFunc("DELETE /api/devices/{device_id}", s.handleDeleteDevice)
-		mux.HandleFunc("POST /api/account/deactivate", s.handleDeactivateAccount)
-		mux.HandleFunc("POST /api/account/confirm-cross-signing-reset", s.handleConfirmCrossSigningReset)
+		mux.HandleFunc("GET /account", s.metrics.InstrumentHandler("/account", s.handleAccountPage))
+		mux.HandleFunc("GET /account/callback", s.metrics.InstrumentHandler("/account/callback", s.handleAccountCallback))
+		mux.HandleFunc("POST /account/logout", s.metrics.InstrumentHandler("/account/logout", s.handleAccountLogout))
+		mux.HandleFunc("GET /api/devices", s.metrics.InstrumentHandler("/api/devices", s.handleListDevices))
+		mux.HandleFunc("GET /api/profile", s.metrics.InstrumentHandler("/api/profile", s.handleProfileGet))
+		mux.HandleFunc("PUT /api/profile", s.metrics.InstrumentHandler("/api/profile", s.handleProfilePut))
+		mux.HandleFunc("DELETE /api/devices/{device_id}", s.metrics.InstrumentHandler("/api/devices/{device_id}", s.handleDeleteDevice))
+		mux.HandleFunc("POST /api/account/deactivate", s.metrics.InstrumentHandler("/api/account/deactivate", s.handleDeactivateAccount))
+		mux.HandleFunc("POST /api/account/confirm-cross-signing-reset", s.metrics.InstrumentHandler("/api/account/confirm-cross-signing-reset", s.handleConfirmCrossSigningReset))
 	}
 
 	// The 12 MAS admin/provisioning actions, each on its own exact path and method — never a
 	// wildcard — so nothing outside this explicit set is ever reachable under /_synapse/mas/.
-	mux.HandleFunc("GET /_synapse/mas/query_user", s.handleManage("query_user", http.MethodGet))
-	mux.HandleFunc("GET /_synapse/mas/is_localpart_available", s.handleManage("is_localpart_available", http.MethodGet))
-	mux.HandleFunc("POST /_synapse/mas/provision_user", s.handleManage("provision_user", http.MethodPost))
-	mux.HandleFunc("POST /_synapse/mas/upsert_device", s.handleManage("upsert_device", http.MethodPost))
-	mux.HandleFunc("POST /_synapse/mas/update_device_display_name", s.handleManage("update_device_display_name", http.MethodPost))
-	mux.HandleFunc("POST /_synapse/mas/delete_device", s.handleManage("delete_device", http.MethodPost))
-	mux.HandleFunc("POST /_synapse/mas/sync_devices", s.handleManage("sync_devices", http.MethodPost))
-	mux.HandleFunc("POST /_synapse/mas/delete_user", s.handleManage("delete_user", http.MethodPost))
-	mux.HandleFunc("POST /_synapse/mas/reactivate_user", s.handleManage("reactivate_user", http.MethodPost))
-	mux.HandleFunc("POST /_synapse/mas/set_displayname", s.handleManage("set_displayname", http.MethodPost))
-	mux.HandleFunc("POST /_synapse/mas/unset_displayname", s.handleManage("unset_displayname", http.MethodPost))
-	mux.HandleFunc("POST /_synapse/mas/allow_cross_signing_reset", s.handleManage("allow_cross_signing_reset", http.MethodPost))
+	mux.HandleFunc("GET /_synapse/mas/query_user", s.metrics.InstrumentHandler("/_synapse/mas/query_user", s.handleManage("query_user", http.MethodGet)))
+    mux.HandleFunc("GET /_synapse/mas/is_localpart_available", s.metrics.InstrumentHandler("/_synapse/mas/is_localpart_available", s.handleManage("is_localpart_available", http.MethodGet)))
+    mux.HandleFunc("POST /_synapse/mas/provision_user", s.metrics.InstrumentHandler("/_synapse/mas/provision_user", s.handleManage("provision_user", http.MethodPost)))
+    mux.HandleFunc("POST /_synapse/mas/upsert_device", s.metrics.InstrumentHandler("/_synapse/mas/upsert_device", s.handleManage("upsert_device", http.MethodPost)))
+    mux.HandleFunc("POST /_synapse/mas/update_device_display_name", s.metrics.InstrumentHandler("/_synapse/mas/update_device_display_name", s.handleManage("update_device_display_name", http.MethodPost)))
+    mux.HandleFunc("POST /_synapse/mas/delete_device", s.metrics.InstrumentHandler("/_synapse/mas/delete_device", s.handleManage("delete_device", http.MethodPost)))
+    mux.HandleFunc("POST /_synapse/mas/sync_devices", s.metrics.InstrumentHandler("/_synapse/mas/sync_devices", s.handleManage("sync_devices", http.MethodPost)))
+    mux.HandleFunc("POST /_synapse/mas/delete_user", s.metrics.InstrumentHandler("/_synapse/mas/delete_user", s.handleManage("delete_user", http.MethodPost)))
+    mux.HandleFunc("POST /_synapse/mas/reactivate_user", s.metrics.InstrumentHandler("/_synapse/mas/reactivate_user", s.handleManage("reactivate_user", http.MethodPost)))
+    mux.HandleFunc("POST /_synapse/mas/set_displayname", s.metrics.InstrumentHandler("/_synapse/mas/set_displayname", s.handleManage("set_displayname", http.MethodPost)))
+    mux.HandleFunc("POST /_synapse/mas/unset_displayname", s.metrics.InstrumentHandler("/_synapse/mas/unset_displayname", s.handleManage("unset_displayname", http.MethodPost)))
+    mux.HandleFunc("POST /_synapse/mas/allow_cross_signing_reset", s.metrics.InstrumentHandler("/_synapse/mas/allow_cross_signing_reset", s.handleManage("allow_cross_signing_reset", http.MethodPost)))
+	
+	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
+    w.Header().Set("Content-Type", "application/json")
+    w.WriteHeader(http.StatusOK)
 
-	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) { w.Write([]byte("ok")) })
+    json.NewEncoder(w).Encode(map[string]any{ // <-- Fixed: json.NewEncoder(w).Encode
+        "status":    "healthy",
+        "version":   Version,
+        "uptime":    time.Since(s.startTime).String(),
+        "timestamp": time.Now().UTC(),
+    })
+	})
+    
+    // You could also add a quick check here if you wanted to test 
+    // connectivity to MU Auth or verify internal caches.
+    
 
 	return s.logMiddleware(s.corsMiddleware(mux))
 }

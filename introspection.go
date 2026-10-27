@@ -195,8 +195,10 @@ func (s *Server) ensureProvisioned(ctx context.Context, localpart, device string
 			"device_id":    device,
 			"display_name": displayName,
 		}); err != nil {
+			s.metrics.deviceProvisionTotal.WithLabelValues("error").Inc()
 			return err
 		}
+		s.metrics.deviceProvisionTotal.WithLabelValues("success").Inc()
 	}
 
 	s.provisioned.mark(key, s.cfg.ProvisionCacheTTL)
