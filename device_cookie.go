@@ -185,7 +185,7 @@ func (s *Server) handleAuthorize(w http.ResponseWriter, r *http.Request) {
 
 	// If the client provided a custom name, stash it in a secure cookie so the sidecar remembers it
 	if displayName != "" {
-		s.storeDeviceDisplayName(w, deviceID, displayName)
+		s.storeDeviceDisplayName(deviceID, displayName)
 	}
 
 	q.Set("scope", injectDeviceScope(q.Get("scope"), deviceID))
@@ -193,26 +193,17 @@ func (s *Server) handleAuthorize(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, target.String(), http.StatusFound)
 }
 
-// Helper to seal the display name into a temporary cookie
-func (s *Server) storeDeviceDisplayName(w http.ResponseWriter, deviceID, displayName string) {
-	payload := map[string]string{
-		"device_id":    deviceID,
-		"display_name": displayName,
-	}
-	sealed, err := s.sealer.seal(payload)
-	if err != nil {
-		return
-	}
+func (s *Server) storeDeviceDisplayName(deviceID, displayName string) {
+    if deviceID == "" || displayName == "" {
+        return
+    }
+    s.deviceNames.mu.Lock()
+    defer s.deviceNames.mu.Unlock()
 
-	http.SetCookie(w, &http.Cookie{
-		Name:     "mu_dev_name_" + deviceID,
-		Value:    sealed,
-		Path:     "/",
-		MaxAge:   3600, // 1 hour lifespan, plenty of time to finish login
-		HttpOnly: true,
-		Secure:   s.cfg.PublicURL.Scheme == "https",
-		SameSite: http.SameSiteLaxMode,
-	})
+    if s.deviceNames.entries == nil {
+        s.deviceNames.entries = make(map[string]string)
+    }
+    s.deviceNames.entries[deviceID] = displayName
 }
 
 // handleToken is a pure reverse proxy to MU Auth's real token endpoint. No rewriting is needed

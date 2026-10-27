@@ -12,8 +12,8 @@ import (
 	"time"
 )
 
-// jwksCacheTTL mirrors the 15-minute cache Zendrite documents for its own JWKS proxy.
-const jwksCacheTTL = 15 * time.Minute
+// jwksCacheTTL mirrors the 30-minute cache Zendrite documents for its own JWKS proxy.
+const jwksCacheTTL = 30 * time.Minute
 
 // discoveryCache holds the last-fetched upstream discovery document, keyed by nothing (there's
 // only ever one, MU_AUTH_ISSUER). A stale copy is served if a refresh fails, same as Zendrite's

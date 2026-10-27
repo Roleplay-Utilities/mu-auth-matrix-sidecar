@@ -130,7 +130,7 @@ func (s *Server) handleIntrospect(w http.ResponseWriter, r *http.Request) {
 	scope, _ := payload["scope"].(string)
 	device := extractDeviceScope(scope)
 
-	if err := s.ensureProvisioned(r.Context(), r, username, device); err != nil {
+	if err := s.ensureProvisioned(r.Context(), username, device); err != nil {
 		// Fail closed: Zendrite must never treat a token as valid for a user or device that may
 		// not actually exist on the homeserver yet.
 		s.log.WithError(err).WithFields(logrus.Fields{"username": username, "device": device}).
@@ -167,19 +167,13 @@ func extractDeviceScope(scope string) string {
 	return ""
 }
 
-func (s *Server) getStoredDisplayName(r *http.Request, deviceID string) string {
-	c, err := r.Cookie("mu_dev_name_" + deviceID)
-	if err != nil {
-		return ""
-	}
-	var payload map[string]string
-	if s.sealer.open(c.Value, &payload) != nil {
-		return ""
-	}
-	return payload["display_name"]
+func (s *Server) getStoredDisplayName(deviceID string) string {
+    s.deviceNames.mu.Lock()
+    defer s.deviceNames.mu.Unlock()
+    return s.deviceNames.entries[deviceID]
 }
 
-func (s *Server) ensureProvisioned(ctx context.Context, r *http.Request, localpart, device string) error {
+func (s *Server) ensureProvisioned(ctx context.Context, localpart, device string) error {
 	key := localpart + "\x00" + device
 	if s.provisioned.fresh(key) {
 		return nil
@@ -191,7 +185,7 @@ func (s *Server) ensureProvisioned(ctx context.Context, r *http.Request, localpa
 
 	if device != "" {
 		// Look up the display name the client passed during authorization
-		displayName := s.getStoredDisplayName(r, device)
+		displayName := s.getStoredDisplayName(device)
 		if displayName == "" {
 			displayName = "Matrix Client" // Final fallback only if nothing was passed
 		}

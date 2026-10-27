@@ -8,6 +8,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -21,6 +22,10 @@ import (
 // state (the discovery/JWKS/provisioning caches) is purely an optimisation: losing it on restart,
 // or running several independent instances without sharing it, changes nothing about
 // correctness, only how often upstream calls are made.
+type deviceNameStore struct {
+    mu      sync.Mutex
+    entries map[string]string
+}
 type Server struct {
 	cfg    *Config
 	http   *http.Client
@@ -30,6 +35,8 @@ type Server struct {
 	discovery   discoveryCache
 	jwks        jwksCache
 	provisioned provisionCache
+	deviceNamesMu sync.Mutex
+    deviceNames deviceNameStore
 }
 
 func NewServer(cfg *Config, log *logrus.Logger) (*Server, error) {
