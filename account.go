@@ -870,26 +870,26 @@ document.getElementById('deactivate').onclick = async () => {
 `))
 
 func (s *Server) handleLandingPage(w http.ResponseWriter, r *http.Request) {
-    // Only serve on exact root path
     if r.URL.Path != "/" {
         http.NotFound(w, r)
         return
     }
 
-    // Automatically grab git commit hash and build info if built as a module
-    version := "v1.0.2" // fallback
-    if info, ok := debug.ReadBuildInfo(); ok {
-        for _, setting := range info.Settings {
-            if setting.Key == "vcs.revision" {
-                if len(setting.Value) > 7 {
-                    version = setting.Value[:7] // short hash
-                } else {
-                    version = setting.Value
+    // Version lookup logic...
+    version := Version
+    if version == "v1.0.0" {
+        if info, ok := debug.ReadBuildInfo(); ok {
+            for _, setting := range info.Settings {
+                if setting.Key == "vcs.revision" && len(setting.Value) >= 7 {
+                    version = setting.Value[:7]
+                    break
                 }
-                break
             }
         }
     }
+
+    // Calculate live uptime
+    uptimeStr := formatUptime(time.Since(s.startTime))
 
     html := fmt.Sprintf(`<!DOCTYPE html>
 <html lang="en">
@@ -929,7 +929,7 @@ func (s *Server) handleLandingPage(w http.ResponseWriter, r *http.Request) {
         }
         .badge {
             background-color: #0284c7;
-            color: #white;
+            color: #ffffff;
             font-size: 0.75rem;
             padding: 2px 8px;
             border-radius: 9999px;
@@ -957,20 +957,26 @@ func (s *Server) handleLandingPage(w http.ResponseWriter, r *http.Request) {
             margin-top: 1.5rem;
             border-top: 1px solid #334155;
             padding-top: 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
         .links {
             margin-top: 1rem;
             display: flex;
             justify-content: center;
-            gap: 16px;
+            gap: 12px;
+            font-size: 0.9rem;
         }
         a {
             color: #38bdf8;
             text-decoration: none;
-            font-size: 0.9rem;
         }
         a:hover {
             text-decoration: underline;
+        }
+        .dot {
+            color: #475569;
         }
     </style>
 </head>
@@ -989,16 +995,19 @@ func (s *Server) handleLandingPage(w http.ResponseWriter, r *http.Request) {
 
         <div class="links">
             <a href="https://mega-utilities.com" target="_blank">Mega Utilities</a>
-            <span>•</span>
+            <span class="dot">•</span>
             <a href="https://matrix.to/#/#mu:matrix.mega-utilities.com" target="_blank">MU Matrix Space</a>
+            <span class="dot">•</span>
+            <a href="https://github.com/Roleplay-Utilities/mu-auth-matrix-sidecar" target="_blank">GitHub</a>
         </div>
 
         <div class="meta">
-            Created by Mega Utilities
+            <span>Created by Mega Utilities</span>
+            <span>Uptime: <strong>%s</strong></span>
         </div>
     </div>
 </body>
-</html>`, version)
+</html>`, version, uptimeStr)
 
     w.Header().Set("Content-Type", "text/html; charset=utf-8")
     w.WriteHeader(http.StatusOK)

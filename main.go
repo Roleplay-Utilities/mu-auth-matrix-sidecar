@@ -11,6 +11,7 @@ import (
 	"sync"
 	"syscall"
 	"time"
+	"fmt"
 
 	"github.com/joho/godotenv"
 	"github.com/sirupsen/logrus"
@@ -37,6 +38,7 @@ type Server struct {
 	provisioned provisionCache
 	deviceNamesMu sync.Mutex
     deviceNames deviceNameStore
+	startTime   time.Time
 }
 
 func NewServer(cfg *Config, log *logrus.Logger) (*Server, error) {
@@ -55,7 +57,26 @@ func NewServer(cfg *Config, log *logrus.Logger) (*Server, error) {
 		sealer:      sl,
 		log:         log,
 		provisioned: provisionCache{entries: make(map[string]time.Time)},
+		startTime: time.Now(),
 	}, nil
+}
+
+func formatUptime(d time.Duration) string {
+    days := int(d.Hours() / 24)
+    hours := int(d.Hours()) % 24
+    minutes := int(d.Minutes()) % 60
+    seconds := int(d.Seconds()) % 60
+
+    if days > 0 {
+        return fmt.Sprintf("%dd %dh %dm", days, hours, minutes)
+    }
+    if hours > 0 {
+        return fmt.Sprintf("%dh %dm", hours, minutes)
+    }
+    if minutes > 0 {
+        return fmt.Sprintf("%dm %ds", minutes, seconds)
+    }
+    return fmt.Sprintf("%ds", seconds)
 }
 
 func (s *Server) routes() http.Handler {
