@@ -117,18 +117,34 @@ func EnsureInstalledAndRegistered() {
 func registerSystemService(binPath string) {
 	switch runtime.GOOS {
 	case "windows":
-		// Register Windows Service using sc.exe
-		// Note: Requires running as Administrator for the initial registration
-		cmd := exec.Command("sc", "create", ServiceName, "binPath=", fmt.Sprintf("\"%s\"", binPath), "start=", "auto", "DisplayName=", ServiceDesc)
+		// Register a Windows Scheduled Task to run at system startup as SYSTEM with highest privileges.
+		// This bypasses the SCM service protocol (preventing Error 1053) while acting like a background service.
+		taskName := ServiceName
+		
+		// Delete existing task if it exists to allow clean updates/re-registrations
+		_ = exec.Command("schtasks", "/delete", "/tn", taskName, "/f").Run()
+
+		// Create the startup task
+		cmd := exec.Command(
+			"schtasks", "/create",
+			"/tn", taskName,
+			"/tr", fmt.Sprintf("\"%s\"", binPath),
+			"/sc", "ONSTART",
+			"/ru", "SYSTEM",
+			"/rl", "HIGHEST",
+			"/f",
+		)
+
 		if err := cmd.Run(); err == nil {
-			_ = exec.Command("sc", "description", ServiceName, ServiceDesc).Run()
-			_ = exec.Command("sc", "start", ServiceName).Run()
-			fmt.Println("[SETUP] Windows service registered and started successfully.")
+			// Start the task immediately
+			_ = exec.Command("schtasks", "/run", "/tn", taskName).Run()
+			fmt.Println("[SETUP] Windows background startup task registered and started successfully.")
 		} else {
-			fmt.Println("[SETUP] Note: Run as Administrator to auto-register Windows service.")
+			fmt.Println("[SETUP] Note: Run as Administrator to auto-register Windows startup task.")
 		}
+
 	case "linux":
-		// Register Linux systemd service
+		// Register Linux systemd service (unchanged)
 		serviceContent := fmt.Sprintf(`[Unit]
 Description=%s
 After=network.target
@@ -489,6 +505,11 @@ func downloadFile(filepath string, url string) error {
 }
 
 func restartServiceOrReexec(exPath string) {
+	if runtime.GOOS == "windows" {
+		// Restart the scheduled task
+		_ = exec.Command("schtasks", "/run", "/tn", ServiceName).Run()
+		os.Exit(0)
+	}
 	if runtime.GOOS == "linux" {
 		if err := exec.Command("systemctl", "restart", ServiceName).Run(); err == nil {
 			os.Exit(0)
