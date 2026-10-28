@@ -177,7 +177,7 @@ func LoadConfig() (*Config, error) {
 		return nil, errors.New("DASHBOARD_CLIENT_ID and DASHBOARD_CLIENT_SECRET must be set together")
 	}
 
-	if c.ProvisionCacheTTL, err = parseDuration("PROVISION_CACHE_TTL", env("PROVISION_CACHE_TTL", ""), 60*time.Minute); err != nil {
+	if c.ProvisionCacheTTL, err = parseDuration("PROVISION_CACHE_TTL", env("PROVISION_CACHE_TTL", ""), 180*time.Second); err != nil {
 		return nil, err
 	}
 	if c.DiscoveryCacheTTL, err = parseDuration("DISCOVERY_CACHE_TTL", env("DISCOVERY_CACHE_TTL", ""), 60*time.Minute); err != nil {
