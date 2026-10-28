@@ -78,8 +78,8 @@ the admin-bearer constant-time comparison.
 | `ZENDRITE_ADMIN_TOKEN` | yes | Shared secret, equal to Zendrite's `msc3861.admin_token`. (`ZENDRIITE_ADMIN_TOKEN`, the original spelling, is still accepted.) |
 | `COOKIE_SECRET` | yes | 32+ bytes of entropy (base64 or hex), used to encrypt/authenticate every cookie. **Must be identical across replicas** if you run more than one instance — this is what makes the service both stateless and horizontally scalable. Generate with `openssl rand -base64 32`. |
 | `DASHBOARD_CLIENT_ID` / `DASHBOARD_CLIENT_SECRET` | no, together | The same confidential OIDC client you already configured in Zendrite for the `/account` dashboard. If unset, `/account` and `/api/devices` are not registered at all. |
-| `PROVISION_CACHE_TTL` | no | Default `60s`. How long a (localpart, device) pair is remembered as already-provisioned. |
-| `DISCOVERY_CACHE_TTL` | no | Default `10m`. |
+| `PROVISION_CACHE_TTL` | no | Default `60m`. How long a (localpart, device) pair is remembered as already-provisioned. |
+| `DISCOVERY_CACHE_TTL` | no | Default `60m`. |
 | `ADMIN_USERNAMES` | no
 
 ## Additional Configuration

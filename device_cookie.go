@@ -15,6 +15,7 @@ import (
 	"regexp"
 	"strings"
 	"time"
+	"net/http/httputil"
 )
 
 const (
@@ -168,6 +169,14 @@ func (s *Server) upstreamAuthorizeURL(ctx context.Context) (*url.URL, error) {
 // browser's eventual redirect back goes straight to whatever redirect_uri the caller supplied
 // (Zendrite's SSO callback, or a native client's own) — never back through the sidecar.
 func (s *Server) handleAuthorize(w http.ResponseWriter, r *http.Request) {
+	if s.cfg.Debug {
+        requestDump, err := httputil.DumpRequest(r, true)
+        if err == nil {
+            s.log.Info("Incoming authorize request dump:\n" + string(requestDump))
+        } else {
+            s.log.WithError(err).Error("authorize: failed to dump request")
+        }
+    }
 	target, err := s.upstreamAuthorizeURL(r.Context())
 	if err != nil {
 		s.log.WithError(err).Error("authorize: discovery fetch failed")
@@ -206,6 +215,13 @@ func (s *Server) storeDeviceDisplayName(deviceID, displayName string) {
         s.deviceNames.entries = make(map[string]string)
     }
     s.deviceNames.entries[deviceID] = displayName
+
+	if s.cfg.Debug {
+	s.log.WithFields(map[string]any{
+        "device_id":    deviceID,
+        "display_name": displayName,
+    }).Info("stored device display name")
+	}
 }
 
 // handleToken is a pure reverse proxy to MU Auth's real token endpoint. No rewriting is needed

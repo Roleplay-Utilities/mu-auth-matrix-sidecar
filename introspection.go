@@ -186,6 +186,9 @@ func (s *Server) ensureProvisioned(ctx context.Context, localpart, device string
 	if device != "" {
 		// Look up the display name the client passed during authorization
 		displayName := s.getStoredDisplayName(device)
+		if s.cfg.Debug {
+			s.log.Info(`displayName:`, displayName)
+		}
 		if displayName == "" {
 			displayName = "Matrix Client" // Final fallback only if nothing was passed
 		}

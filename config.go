@@ -41,6 +41,9 @@ type Config struct {
 	// itself returns. This is operator-controlled configuration, not anything a client or the
 	// token itself can influence.
 	AdminUsernames map[string]bool
+
+	// Debug
+	Debug bool // default false
 }
 
 func env(k, d string) string {
@@ -174,7 +177,7 @@ func LoadConfig() (*Config, error) {
 		return nil, errors.New("DASHBOARD_CLIENT_ID and DASHBOARD_CLIENT_SECRET must be set together")
 	}
 
-	if c.ProvisionCacheTTL, err = parseDuration("PROVISION_CACHE_TTL", env("PROVISION_CACHE_TTL", ""), 60*time.Second); err != nil {
+	if c.ProvisionCacheTTL, err = parseDuration("PROVISION_CACHE_TTL", env("PROVISION_CACHE_TTL", ""), 60*time.Minute); err != nil {
 		return nil, err
 	}
 	if c.DiscoveryCacheTTL, err = parseDuration("DISCOVERY_CACHE_TTL", env("DISCOVERY_CACHE_TTL", ""), 60*time.Minute); err != nil {
@@ -187,6 +190,8 @@ func LoadConfig() (*Config, error) {
 			c.AdminUsernames[u] = true
 		}
 	}
+
+	c.Debug = strings.EqualFold(env("DEBUG", "false"), "true") || env("DEBUG", "") == "1"
 
 	return c, nil
 }
