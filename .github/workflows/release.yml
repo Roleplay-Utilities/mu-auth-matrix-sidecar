@@ -7,6 +7,10 @@ on:
         description: 'Version tag to release (e.g., v1.1.0)'
         required: true
         type: string
+      release_notes:
+        description: 'Optional manual release notes (leave blank to auto-generate)'
+        required: false
+        type: string
 
 jobs:
   build-and-release:
@@ -90,6 +94,7 @@ jobs:
           name: Release ${{ inputs.version }}
           draft: false
           prerelease: false
+          body: ${{ inputs.release_notes }}
           generate_release_notes: true
           files: |
             build/*
