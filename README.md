@@ -78,7 +78,7 @@ the admin-bearer constant-time comparison.
 | `ZENDRITE_ADMIN_TOKEN` | yes | Shared secret, equal to Zendrite's `msc3861.admin_token`. (`ZENDRIITE_ADMIN_TOKEN`, the original spelling, is still accepted.) |
 | `COOKIE_SECRET` | yes | 32+ bytes of entropy (base64 or hex), used to encrypt/authenticate every cookie. **Must be identical across replicas** if you run more than one instance — this is what makes the service both stateless and horizontally scalable. Generate with `openssl rand -base64 32`. |
 | `DASHBOARD_CLIENT_ID` / `DASHBOARD_CLIENT_SECRET` | no, together | The same confidential OIDC client you already configured in Zendrite for the `/account` dashboard. If unset, `/account` and `/api/devices` are not registered at all. |
-| `PROVISION_CACHE_TTL` | no | Default `60m`. How long a (localpart, device) pair is remembered as already-provisioned. |
+| `PROVISION_CACHE_TTL` | no | Default `180s`. How long a (localpart, device) pair is remembered as already-provisioned. |
 | `DISCOVERY_CACHE_TTL` | no | Default `60m`. |
 | `ADMIN_USERNAMES` | no
 
@@ -129,12 +129,7 @@ document points every endpoint back at itself.
   supply one of their own. A native client's explicit device scope is never overridden: doing so
   could hand two different users of the same browser the same device id, or break a client that
   persists its own device id outside of cookies.
-- **`ZENDRIITE_ADMIN_TOKEN`.** Read as a typo (`ZENDRITE_URL` is spelled correctly elsewhere in the
-  spec). `ZENDRITE_ADMIN_TOKEN` is primary; the original spelling still works.
 
-## Known limitation
-
-Cross-signing reset confirmation (`allow_cross_signing_reset`) is exposed on the admin passthrough,
-but nothing in this service calls it automatically — that has to come from wherever the user
-confirms the reset (MU Auth's own account UI, most likely). Everything else in the 12-action MAS
-API is wired end to end.
+## Other possiblities and future ideas
+In the future this bridge could allow multiple SSO providers while acting as "one" to the server. We could also
+further add support for other MAS style stuff which may happen in the future.
