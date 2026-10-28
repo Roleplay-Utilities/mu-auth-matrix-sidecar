@@ -133,3 +133,7 @@ document points every endpoint back at itself.
 ## Other possiblities and future ideas
 In the future this bridge could allow multiple SSO providers while acting as "one" to the server. We could also
 further add support for other MAS style stuff which may happen in the future.
+
+## Known Quirks
+It appears that clients do not pass a device_name as they would typically so your session will be named
+Matrix Client. If you rename it then it will again be renamed later (pending fix)
