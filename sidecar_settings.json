@@ -1,4 +1,5 @@
 {
   "prereleases": false,
-  "auto_restart": true
+  "auto_restart": true,
+  "auto_update": true
 }

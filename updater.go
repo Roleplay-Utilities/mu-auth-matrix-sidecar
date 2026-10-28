@@ -37,6 +37,7 @@ type GitHubRelease struct {
 type UpdateSettings struct {
 	Prereleases bool `json:"prereleases"`
 	AutoRestart bool `json:"auto_restart"`
+	AutoUpdate bool `json:"auto_update"`
 }
 
 // ==========================================
@@ -294,17 +295,20 @@ func LoadUpdateSettings() UpdateSettings {
 	path := getSettingsPath()
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return UpdateSettings{Prereleases: false, AutoRestart: true}
+		return UpdateSettings{Prereleases: false, AutoRestart: true, AutoUpdate: true}
 	}
 	var s UpdateSettings
 	if json.Unmarshal(data, &s) != nil {
-		return UpdateSettings{Prereleases: false, AutoRestart: true}
+		return UpdateSettings{Prereleases: false, AutoRestart: true, AutoUpdate: true}
 	}
 	return s
 }
 
 func CheckForUpdates() {
 	settings := LoadUpdateSettings()
+	if !settings.AutoUpdate {
+        return
+    }
 	release, err := fetchTargetRelease(settings.Prereleases)
 	if err != nil || release.TagName == "" {
 		return
