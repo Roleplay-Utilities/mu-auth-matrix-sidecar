@@ -1,4 +1,7 @@
 # mu-auth-matrix-sidecar
+[Download](https://github.com/Roleplay-Utilities/mu-auth-matrix-sidecar/releases/latest)
+## Support and Inquiries
+Use issues to report any bugs or feature requests or additonally you may use [our matrix room](https://matrix.to/#/#sidecar:matrix.mega-utilities.com) or any socials [listed on our website](https://mega-utilities.com)
 
 A stateless Go sidecar that lets any standard Matrix homeserver (Zendrite, or anything else
 implementing MSC3861/MSC4191) use **MU Auth** — or any standalone public OIDC provider that issues
